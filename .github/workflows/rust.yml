@@ -1,4 +1,4 @@
-name: Rust
+name: Chess Library Unit Tests
 
 on:
   push:
