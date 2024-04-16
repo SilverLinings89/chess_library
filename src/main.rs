@@ -519,6 +519,23 @@ impl ChessBoardState {
     }
 }
 
+
+#[test]
+fn test_fen() {
+    let mut board = ChessBoardState::new();
+    let fen1 = board.to_fen();
+    assert_eq!(fen1, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0");
+    board.perform_move(ChessMove {
+        from: ChessBoardPosition { row: 1, column: 4 },
+        to: ChessBoardPosition { row: 3, column: 4 },
+        promotion: None,
+        piece: ChessPieces::Pawn,
+        color: ChessColors::White,
+    });
+    let fen2 = board.to_fen();
+    assert_eq!(fen2, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+}
+
 fn main() {
     
     let mut board = ChessBoardState::new();
