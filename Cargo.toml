@@ -1,7 +1,12 @@
 [package]
-name = "chess_webserver"
+name = "chess_library"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "An independent implementation of the game of chess. Over time, this implementation will contain the game rules and interopperability helpers like FEN export."
+homepage = "https://github.com/SilverLinings89/chess_library"
+repository = "https://github.com/SilverLinings89/chess_library"
+readme = "Readme.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "chess_webserver"
+name = "chess_library"
 version = "0.1.0"
