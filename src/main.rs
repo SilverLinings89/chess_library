@@ -220,7 +220,7 @@ impl ChessBoardState {
                     position: ChessBoardPosition { row: 6, column: 7 },
                 },
             ],
-            move_counter: 1,
+            move_counter: 0,
             to_move: ChessColors::White,
             white_castling_state: CastlingStateData {
                 rook_a_moved: false,
@@ -309,8 +309,44 @@ impl ChessBoardState {
             ChessColors::Black => ChessColors::White,
         };
         self.move_history.push(next_move);
-        self.halfmove_clock += 1;
+       self.update_half_move_clock(next_move.piece, captured_piece.is_some());
+        self.update_castling_state_for_move(next_move);
         true
+    }
+
+    fn update_half_move_clock(&mut self, piece: ChessPieces, move_was_capture: bool) {
+        self.halfmove_clock += 1;
+        if piece == ChessPieces::Pawn {
+            self.halfmove_clock = 0;
+            return;
+        }
+        if move_was_capture {
+            self.halfmove_clock = 0;
+        }
+    }
+
+    fn update_castling_state_for_move(&mut self, next_move: ChessMove) {
+        if next_move.color == ChessColors::White {
+            if next_move.piece == ChessPieces::King {
+                self.white_castling_state.king_moved = true;
+            } else if next_move.piece == ChessPieces::Rook {
+                if next_move.from.row == 0 && next_move.from.column == 0 {
+                    self.white_castling_state.rook_a_moved = true;
+                } else if next_move.from.row == 0 && next_move.from.column == 7 {
+                    self.white_castling_state.rook_h_moved = true;
+                }
+            }
+        } else {
+            if next_move.piece == ChessPieces::King {
+                self.black_castling_state.king_moved = true;
+            } else if next_move.piece == ChessPieces::Rook {
+                if next_move.from.row == 7 && next_move.from.column == 0 {
+                    self.black_castling_state.rook_a_moved = true;
+                } else if next_move.from.row == 7 && next_move.from.column == 7 {
+                    self.black_castling_state.rook_h_moved = true;
+                }
+            }
+        }
     }
 
     fn get_king_position(&self, side: ChessColors) -> Option<ChessBoardPosition> {
@@ -438,8 +474,8 @@ impl ChessBoardState {
         }
         let ret = self.move_history.last().map(|last_move| {
             if last_move.piece == ChessPieces::Pawn && (last_move.from.row as i32 - last_move.to.row as i32).abs() == 2 {
-                let row = (last_move.from.row + last_move.to.row) / 2;
-                let col: char = (('a' as u8 )+ last_move.to.column - 1) as char;
+                let row = (last_move.from.row + last_move.to.row) / 2 + 1;
+                let col: char = (('a' as u8 )+ last_move.to.column) as char;
                 format!("{}{}", col, row)
             } else {
                 "-".to_string()
@@ -460,6 +496,10 @@ impl ChessBoardState {
             for piece in &self.pieces {
                 if piece.position.row == row && piece.position.column == column {
                     found = true;
+                    if empty_counter > 0 {
+                        fen.push_str(&empty_counter.to_string());
+                        empty_counter = 0;
+                    }
                     fen.push_str(match piece.piece {
                         ChessPieces::King => if piece.color == ChessColors::White {"K"}  else { "k"},
                         ChessPieces::Queen => if piece.color == ChessColors::White {"Q"}  else { "q"},
@@ -473,11 +513,6 @@ impl ChessBoardState {
             }
             if !found {
                 empty_counter += 1;
-            } else {
-                if empty_counter > 0 {
-                    fen.push_str(&empty_counter.to_string());
-                    empty_counter = 0;
-                }
             }
         }
         if empty_counter > 0 {
@@ -525,7 +560,7 @@ impl ChessBoardState {
 }
 
 fn main() {
-    println!("Hello, world!");
+    
     let mut board = ChessBoardState::new();
     println!("{}", board.to_fen());
     board.perform_move(ChessMove {
