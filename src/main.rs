@@ -1,5 +1,9 @@
+mod chess_board_position;
 
-#[derive( PartialEq, Eq)]
+use chess_board_position::ChessBoardPosition;
+
+/// The piece types of a chess game.
+#[derive( PartialEq, Eq, Copy, Clone)]
 enum ChessPieces {
     King,
     Queen,
@@ -9,30 +13,29 @@ enum ChessPieces {
     Pawn,
 }
 
+/// For readability, we don't want to use boolean values (is_player_white == true) to determine the color of a piece. Instead, we use this enum.
 #[derive( PartialEq, Eq, Clone, Copy)]
 enum ChessColors {
     Black,
     White,
 }
 
-#[derive( PartialEq, Eq, Clone, Copy)]
-struct ChessBoardPosition {
-    row: u8,
-    column: u8,
-}
-
+#[derive( Clone, Copy)]
+/// For a piece on the board, this struct contains the piece type, the color and the position.
 struct PositionedChessPiece {
     piece: ChessPieces,
     color: ChessColors,
     position: ChessBoardPosition,
 }
 
+#[derive( Clone, Copy)]
 struct CastlingStateData {
     rook_a_moved: bool,
     rook_h_moved: bool,
     king_moved: bool,
 }
 
+#[derive( Clone, Copy)]
 struct ChessMove {
     from: ChessBoardPosition,
     to: ChessBoardPosition,
@@ -41,6 +44,7 @@ struct ChessMove {
     color: ChessColors,
 }
 
+#[derive( Clone)]
 struct ChessBoardState {
     pieces: Vec<PositionedChessPiece>,
     move_counter: i32,
@@ -233,6 +237,82 @@ impl ChessBoardState {
         }
     }
 
+    fn get_captured_piece_for_move(&self, next_move: ChessMove) -> Option<ChessPieces> {
+        for piece in &self.pieces {
+            if piece.position.row == next_move.to.row && piece.position.column == next_move.to.column {
+                return Some(piece.piece);
+            }
+        }
+        None
+    }
+
+    fn get_piece_index_by_position(&self, position: ChessBoardPosition) -> Option<usize> {
+        for (index, piece) in self.pieces.iter().enumerate() {
+            if piece.position.row == position.row && piece.position.column == position.column {
+                return Some(index);
+            }
+        }
+        None
+    }
+    
+    fn force_perform_shallow_move(&self, next_move: ChessMove) -> ChessBoardState {
+        let mut new_state = self.clone();
+        let captured_piece = self.get_captured_piece_for_move(next_move);
+        if captured_piece.is_some() {
+            let captured_index = self.get_piece_index_by_position(next_move.to);
+            if captured_index.is_some() {
+               new_state.pieces.remove(captured_index.unwrap());
+            }
+        }
+        for piece in &mut new_state.pieces {
+            if piece.position.row == next_move.from.row && piece.position.column == next_move.from.column && piece.piece == next_move.piece && piece.color == next_move.color {
+                piece.position = next_move.to;
+                break;
+            }
+        }
+        new_state
+    }
+
+    fn perform_move(&mut self, next_move: ChessMove) -> bool {
+        if !self.is_move_valid(next_move) {
+            return false;
+        }
+        let captured_piece = self.get_captured_piece_for_move(next_move);
+        if captured_piece.is_some() {
+            let captured_index = self.get_piece_index_by_position(next_move.to);
+            match captured_index {
+                Some(index) => self.pieces.remove(index),
+                None => return false,
+            };
+        }
+        for piece in &mut self.pieces {
+            if piece.position.row == next_move.from.row && piece.position.column == next_move.from.column && piece.piece == next_move.piece && piece.color == next_move.color {
+                piece.position = next_move.to;
+                break;
+            }
+        }
+        if next_move.piece == ChessPieces::Pawn && (next_move.to.row == 0 || next_move.to.row == 7) {
+            let promotion_piece = match next_move.promotion {
+                Some(piece) => piece,
+                None => ChessPieces::Queen,
+            };
+            for piece in &mut self.pieces {
+                if piece.position == next_move.to && piece.piece == ChessPieces::Pawn && piece.color == next_move.color {
+                    piece.piece = promotion_piece;
+                    break;
+                }
+            }
+        }
+        self.move_counter += 1;
+        self.to_move = match self.to_move {
+            ChessColors::White => ChessColors::Black,
+            ChessColors::Black => ChessColors::White,
+        };
+        self.move_history.push(next_move);
+        self.halfmove_clock += 1;
+        true
+    }
+
     fn get_king_position(&self, side: ChessColors) -> Option<ChessBoardPosition> {
         for piece in &self.pieces {
             if piece.piece == ChessPieces::King && piece.color == side {
@@ -270,7 +350,7 @@ impl ChessBoardState {
     fn is_in_check(&self, side: ChessColors) ->bool {
         let king_position = self.get_king_position(side).expect("No king found");
         for piece in &self.pieces {
-            if(piece.color != side) {
+            if piece.color != side {
                 match piece.piece {
                     ChessPieces::King => {
                         if (king_position.row as i32 - piece.position.row as i32).abs() <= 1 && (king_position.column as i32 - piece.position.column as i32).abs() <= 1 {
@@ -329,8 +409,6 @@ impl ChessBoardState {
         false
     }
 
-
-
     fn is_move_valid(&self, next_move: ChessMove) -> bool {
         let mut piece_found = false;
         for piece in &self.pieces {
@@ -344,6 +422,12 @@ impl ChessBoardState {
         }
         if !piece_found {
             return false;
+        }
+        if self.is_in_check(next_move.color) {
+            let updated_temp_state = self.force_perform_shallow_move(next_move);
+            if updated_temp_state.is_in_check(next_move.color) {
+                return false;
+            }
         }
         true
     }
@@ -442,6 +526,14 @@ impl ChessBoardState {
 
 fn main() {
     println!("Hello, world!");
-    let board = ChessBoardState::new();
+    let mut board = ChessBoardState::new();
+    println!("{}", board.to_fen());
+    board.perform_move(ChessMove {
+        from: ChessBoardPosition { row: 1, column: 4 },
+        to: ChessBoardPosition { row: 3, column: 4 },
+        promotion: None,
+        piece: ChessPieces::Pawn,
+        color: ChessColors::White,
+    });
     println!("{}", board.to_fen());
 }
