@@ -1,55 +1,15 @@
-mod chess_board_position;
+mod enum_types;
+mod structs;
 
-use chess_board_position::ChessBoardPosition;
-
-/// The piece types of a chess game.
-#[derive( PartialEq, Eq, Copy, Clone)]
-enum ChessPieces {
-    King,
-    Queen,
-    Rook,
-    Bishop,
-    Knight,
-    Pawn,
-}
-
-/// For readability, we don't want to use boolean values (is_player_white == true) to determine the color of a piece. Instead, we use this enum.
-#[derive( PartialEq, Eq, Clone, Copy)]
-enum ChessColors {
-    Black,
-    White,
-}
-
-#[derive( Clone, Copy)]
-/// For a piece on the board, this struct contains the piece type, the color and the position.
-struct PositionedChessPiece {
-    piece: ChessPieces,
-    color: ChessColors,
-    position: ChessBoardPosition,
-}
-
-#[derive( Clone, Copy)]
-struct CastlingStateData {
-    rook_a_moved: bool,
-    rook_h_moved: bool,
-    king_moved: bool,
-}
-
-#[derive( Clone, Copy)]
-struct ChessMove {
-    from: ChessBoardPosition,
-    to: ChessBoardPosition,
-    promotion: Option<ChessPieces>,
-    piece: ChessPieces,
-    color: ChessColors,
-}
+pub use enum_types::enum_types::*;
+pub use structs::structs::*;
 
 #[derive( Clone)]
-struct ChessBoardState {
+pub struct ChessBoardState {
     pieces: Vec<PositionedChessPiece>,
     move_counter: i32,
     to_move: ChessColors,
-    white_castling_state: CastlingStateData,
+    pub white_castling_state: CastlingStateData,
     black_castling_state: CastlingStateData,
     move_history: Vec<ChessMove>,
     halfmove_clock: i32,
